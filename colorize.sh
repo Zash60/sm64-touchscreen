@@ -253,12 +253,10 @@ while true; do
 
         # ─── 4. Color selection (with voltar + per-button customization) ──
         while true; do
-            # Clear per-group overrides from previous iterations
-            AB_A=""; AB_B=""; LRZ_L=""; LRZ_R=""; LRZ_Z=""; S_S=""
-            C_CU=""; C_CR=""; C_CD=""; C_CL=""; SEN_SEN=""
-            AB_RR=""; AB_GR=""; AB_BR=""; LRZ_RR=""; LRZ_GR=""; LRZ_BR=""
-            S_RR=""; S_GR=""; S_BR=""; C_RR=""; C_GR=""; C_BR=""
-            SEN_RR=""; SEN_GR=""; SEN_BR=""
+            # Clear per-button overrides from previous iterations
+            for _v in A B L R Z S CU CR CD CL SEN; do
+                unset OVR_${_v} OVR_${_v}_R OVR_${_v}_G OVR_${_v}_B DN_${_v}
+            done
             # 4a. Pick main color
             while true; do
                 echo -e "\n${BOLD}MAIN COLOR:${NC}"
@@ -294,99 +292,59 @@ while true; do
     for _v in A B L R Z S CU CR CD CL SEN; do
         eval "MAIN_${_v}=\$MASK_${_v}"
     done
-    # Track per-group override names for display
-    G_NAME_A="${COLOR_NAME}"; G_NAME_B="${COLOR_NAME}"; G_NAME_LRZ="${COLOR_NAME}"
-    G_NAME_S="${COLOR_NAME}"; G_NAME_C="${COLOR_NAME}"; G_NAME_SEN="${COLOR_NAME}"
+    # Track per-button override names for display
+    for _v in A B L R Z S CU CR CD CL SEN; do
+        eval "DN_${_v}=\"\$COLOR_NAME\""
+    done
 
-    # 4b. Per-button customization
-    echo -ne "\nCustomize individual buttons with different colors? [y/N]: "
-    read -r CUSTOM_BTNS
-    if [[ "$CUSTOM_BTNS" =~ ^[Yy] ]]; then
-        while true; do
-            echo -e "\n${BOLD}─ Customize button groups ─${NC}"
-            echo "  1) A/B buttons      [${G_NAME_A}]"
-            echo "  2) L/R/Z buttons    [${G_NAME_LRZ}]"
-            echo "  3) Start button     [${G_NAME_S}]"
-            echo "  4) C buttons         [${G_NAME_C}]"
-            echo "  5) Joystick/Sen     [${G_NAME_SEN}]"
-            echo -e "  ${BOLD}0) Done${NC}"
-            echo -ne "\nPick a group (0-5): "
-            read -r GROUP_CHOICE
+    # 4b. Per-button customization — each button individually
+    echo -e "\n${BOLD}─ Customize each button individually ─${NC}"
+    echo "  Press Enter to keep the main color, or type 1-10 to change."
+    for entry in "A|A button" "B|B button" "L|L button" "R|R button" \
+                 "Z|Z button" "S|Start button" "CU|C-Up button" \
+                 "CR|C-Right button" "CD|C-Down button" "CL|C-Left button" \
+                 "SEN|Joystick/Sen"; do
+        _key="${entry%%|*}"
+        _name="${entry##*|}"
+        echo
+        echo -e "${BOLD}${_name}${NC} [$(eval echo \$DN_${_key})]"
+        echo -e "  ${RED}1) Red${NC}  ${GREEN}2) Green${NC}  ${BLUE}3) Blue${NC}  ${MAGENTA}4) Purple${NC}  ${YELLOW}5) Orange${NC}"
+        echo -e "  ${CYAN}6) Cyan${NC}  ${MAGENTA}7) Pink${NC}  ${YELLOW}8) Yellow${NC}  ${CYAN}9) Teal${NC}  ${BOLD}10) Custom hex${NC}"
+        echo -ne "  → Enter=keep / (1-10): "
+        read -r BTN_COLOR
 
-            case "$GROUP_CHOICE" in
-                0) break ;;
-                [1-5]) ;;
-                *) err "Invalid"; continue ;;
-            esac
+        case "$BTN_COLOR" in
+            "") continue ;;  # keep main color
+            [1-9]) load_color "$BTN_COLOR" ;;
+            10)
+                echo -ne "  Enter HEX (e.g. #FF6600): "
+                read -r CUSTOM_HEX
+                CUSTOM_HEX="${CUSTOM_HEX#'#'}"
+                if ! [[ "$CUSTOM_HEX" =~ ^[0-9A-Fa-f]{6}$ ]]; then
+                    err "Invalid — keeping main color"; continue
+                fi
+                load_color 10
+                ;;
+            *) err "Invalid — keeping main color"; continue ;;
+        esac
+        # Save override for this button
+        eval "OVR_${_key}=\"\$MASK_${_key}\""
+        eval "OVR_${_key}_R=\$RR; OVR_${_key}_G=\$GR; OVR_${_key}_B=\$BR"
+        eval "DN_${_key}=\"\$COLOR_NAME\""
+        ok "${_name} → ${COLOR_NAME}"
+    done
 
-            # Pick color for this group
-            # Show correct group name
-            case "$GROUP_CHOICE" in
-                1) _gname="A/B buttons" ;;
-                2) _gname="L/R/Z buttons" ;;
-                3) _gname="Start button" ;;
-                4) _gname="C buttons" ;;
-                5) _gname="Joystick/Sen" ;;
-            esac
-            echo -e "\n${BOLD}─ Color for ${_gname} ─${NC}"
-            echo -e "  ${RED}1) Red${NC}        ${GREEN}2) Green${NC}      ${BLUE}3) Blue${NC}"
-            echo -e "  ${MAGENTA}4) Purple${NC}     ${YELLOW}5) Orange${NC}     ${CYAN}6) Cyan${NC}"
-            echo -e "  ${MAGENTA}7) Pink${NC}       ${YELLOW}8) Yellow${NC}    ${CYAN}9) Teal${NC}"
-            echo -e "  ${BOLD}10) Custom${NC} (enter a hex)"
-            echo -e "  ${BOLD}0) Keep current${NC}"
-            echo -ne "\nPick (0-10): "
-            read -r GROUP_COLOR
-
-            case "$GROUP_COLOR" in
-                0) continue ;;  # keep current color for this group
-                [1-9]) load_color "$GROUP_COLOR" ;;
-                10)
-                    echo -ne "Enter HEX color (e.g. #FF6600): "
-                    read -r CUSTOM_HEX
-                    CUSTOM_HEX="${CUSTOM_HEX#'#'}"
-                    if ! [[ "$CUSTOM_HEX" =~ ^[0-9A-Fa-f]{6}$ ]]; then
-                        err "Invalid format"; continue
-                    fi
-                    load_color 10
-                    ;;
-                *) err "Invalid"; continue ;;
-            esac
-
-            # Save overrides for the chosen group
-            case "$GROUP_CHOICE" in
-                1) AB_A="$MASK_A"; AB_B="$MASK_B"; G_NAME_A="$COLOR_NAME"
-                    AB_RR=$RR; AB_GR=$GR; AB_BR=$BR
-                    ok "A/B → ${COLOR_NAME}" ;;
-                2) LRZ_L="$MASK_L"; LRZ_R="$MASK_R"; LRZ_Z="$MASK_Z"; G_NAME_LRZ="$COLOR_NAME"
-                    LRZ_RR=$RR; LRZ_GR=$GR; LRZ_BR=$BR
-                    ok "L/R/Z → ${COLOR_NAME}" ;;
-                3) S_S="$MASK_S"; G_NAME_S="$COLOR_NAME"
-                    S_RR=$RR; S_GR=$GR; S_BR=$BR
-                    ok "Start → ${COLOR_NAME}" ;;
-                4) C_CU="$MASK_CU"; C_CR="$MASK_CR"; C_CD="$MASK_CD"; C_CL="$MASK_CL"; G_NAME_C="$COLOR_NAME"
-                    C_RR=$RR; C_GR=$GR; C_BR=$BR
-                    ok "C buttons → ${COLOR_NAME}" ;;
-                5) SEN_SEN="$MASK_SEN"; G_NAME_SEN="$COLOR_NAME"
-                    SEN_RR=$RR; SEN_GR=$GR; SEN_BR=$BR
-                    ok "Sen → ${COLOR_NAME}" ;;
-            esac
-        done
-    fi
-
-    # 4c. Combine masks: override defaults with per-group selections
-    MASK_A="${AB_A:-$MAIN_A}"; MASK_B="${AB_B:-$MAIN_B}"
-    MASK_L="${LRZ_L:-$MAIN_L}"; MASK_R="${LRZ_R:-$MAIN_R}"; MASK_Z="${LRZ_Z:-$MAIN_Z}"
-    MASK_S="${S_S:-$MAIN_S}"
-    MASK_CU="${C_CU:-$MAIN_CU}"; MASK_CR="${C_CR:-$MAIN_CR}"
-    MASK_CD="${C_CD:-$MAIN_CD}"; MASK_CL="${C_CL:-$MAIN_CL}"
-    MASK_SEN="${SEN_SEN:-$MAIN_SEN}"
+    # 4c. Combine masks: override defaults
+    for _v in A B L R Z S CU CR CD CL SEN; do
+        eval "MASK_\${_v}=\"\${OVR_\${_v}:-\$MAIN_\${_v}}\""
+    done
     RR=$MAIN_RR; GR=$MAIN_GR; BR=$MAIN_BR; COLOR_NAME="$MAIN_NAME"
-    # Default per-group RGBs to main color (for non-mask image recolor)
-    AB_RR="${AB_RR:-$MAIN_RR}"; AB_GR="${AB_GR:-$MAIN_GR}"; AB_BR="${AB_BR:-$MAIN_BR}"
-    LRZ_RR="${LRZ_RR:-$MAIN_RR}"; LRZ_GR="${LRZ_GR:-$MAIN_GR}"; LRZ_BR="${LRZ_BR:-$MAIN_BR}"
-    S_RR="${S_RR:-$MAIN_RR}"; S_GR="${S_GR:-$MAIN_GR}"; S_BR="${S_BR:-$MAIN_BR}"
-    C_RR="${C_RR:-$MAIN_RR}"; C_GR="${C_GR:-$MAIN_GR}"; C_BR="${C_BR:-$MAIN_BR}"
-    SEN_RR="${SEN_RR:-$MAIN_RR}"; SEN_GR="${SEN_GR:-$MAIN_GR}"; SEN_BR="${SEN_BR:-$MAIN_BR}"
+    # Default per-button RGBs to main color (for non-mask image recolor)
+    for _v in A B L R Z S CU CR CD CL SEN; do
+        eval "OVR_\${_v}_R="\${OVR_\${_v}_R:-\$MAIN_RR}""
+        eval "OVR_\${_v}_G="\${OVR_\${_v}_G:-\$MAIN_GR}""
+        eval "OVR_\${_v}_B="\${OVR_\${_v}_B:-\$MAIN_BR}""
+    done
 
     # 4d. Setup output dir
     OUTPUT_DIR="${OUTPUT_BASE}/${SELECTED_SKIN}-${COLOR_NAME}"
@@ -437,28 +395,34 @@ MASK_MAP = {
     (0x88,0x88,0x88): tuple(bytes.fromhex("${MASK_SEN}")),  # Sen
 }
 
-# ─── Per-group RGB overrides for non-mask images ──────────────
-AB_RGB = (${AB_RR}, ${AB_GR}, ${AB_BR})
-LRZ_RGB = (${LRZ_RR}, ${LRZ_GR}, ${LRZ_BR})
-S_RGB = (${S_RR}, ${S_GR}, ${S_BR})
-C_RGB = (${C_RR}, ${C_GR}, ${C_BR})
-SEN_RGB = (${SEN_RR}, ${SEN_GR}, ${SEN_BR})
+# ─── Per-button RGB overrides for non-mask images ──────────────
+A_RGB = (${OVR_A_R}, ${OVR_A_G}, ${OVR_A_B})
+B_RGB = (${OVR_B_R}, ${OVR_B_G}, ${OVR_B_B})
+L_RGB = (${OVR_L_R}, ${OVR_L_G}, ${OVR_L_B})
+R_RGB = (${OVR_R_R}, ${OVR_R_G}, ${OVR_R_B})
+Z_RGB = (${OVR_Z_R}, ${OVR_Z_G}, ${OVR_Z_B})
+S_RGB = (${OVR_S_R}, ${OVR_S_G}, ${OVR_S_B})
+CU_RGB = (${OVR_CU_R}, ${OVR_CU_G}, ${OVR_CU_B})
+CR_RGB = (${OVR_CR_R}, ${OVR_CR_G}, ${OVR_CR_B})
+CD_RGB = (${OVR_CD_R}, ${OVR_CD_G}, ${OVR_CD_B})
+CL_RGB = (${OVR_CL_R}, ${OVR_CL_G}, ${OVR_CL_B})
+SEN_RGB = (${OVR_SEN_R}, ${OVR_SEN_G}, ${OVR_SEN_B})
 
 # Filename prefix → group RGB (longer prefixes first for proper matching)
 GROUP_PREFIXES = {
     'buttonSen': SEN_RGB,
     'buttonS': S_RGB,
-    'buttonCu': C_RGB,
-    'buttonCr': C_RGB,
-    'buttonCd': C_RGB,
-    'buttonCl': C_RGB,
-    'buttonA': AB_RGB,
-    'buttonB': AB_RGB,
-    'buttonL': LRZ_RGB,
-    'buttonR': LRZ_RGB,
-    'buttonZ': LRZ_RGB,
-    'groupAB': AB_RGB,
-    'groupC': C_RGB,
+    'buttonCu': CU_RGB,
+    'buttonCr': CR_RGB,
+    'buttonCd': CD_RGB,
+    'buttonCl': CL_RGB,
+    'buttonA': A_RGB,
+    'buttonB': B_RGB,
+    'buttonL': L_RGB,
+    'buttonR': R_RGB,
+    'buttonZ': Z_RGB,
+    'groupAB': A_RGB,
+    'groupC': CU_RGB,
     'analog': SEN_RGB,
 }
 GROUP_KEYS = sorted(GROUP_PREFIXES.keys(), key=len, reverse=True)
