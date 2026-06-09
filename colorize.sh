@@ -215,7 +215,7 @@ while true; do
             i=$((i+1))
         fi
     done
-    echo -e "  ${BOLD}0) Sair${NC}"
+    echo -e "  ${BOLD}0) Exit${NC}"
     echo -ne "\nPick skin (0-$((i-1))): "
     read -r SKIN_CHOICE
 
@@ -256,7 +256,7 @@ while true; do
         echo -e "  ${MAGENTA}4) Purple${NC}     ${YELLOW}5) Orange${NC}     ${CYAN}6) Cyan${NC}"
         echo -e "  ${MAGENTA}7) Pink${NC}       ${YELLOW}8) Yellow${NC}    ${CYAN}9) Teal${NC}"
         echo -e "  ${BOLD}10) Custom${NC} (enter a hex like #FF6600)"
-        echo -e "  ${BOLD}0) Voltar (escolher outro skin)${NC}"
+        echo -e "  ${BOLD}0) Back (change skin)${NC}"
         echo -ne "\nPick (0-10): "
         read -r COLOR_CHOICE
 
