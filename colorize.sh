@@ -336,14 +336,14 @@ while true; do
 
     # 4c. Combine masks: override defaults
     for _v in A B L R Z S CU CR CD CL SEN; do
-        eval "MASK_\${_v}=\"\${OVR_\${_v}:-\$MAIN_\${_v}}\""
+        eval "MASK_${_v}=\${OVR_${_v}:-\${MAIN_${_v}}}"
     done
     RR=$MAIN_RR; GR=$MAIN_GR; BR=$MAIN_BR; COLOR_NAME="$MAIN_NAME"
     # Default per-button RGBs to main color (for non-mask image recolor)
     for _v in A B L R Z S CU CR CD CL SEN; do
-        eval "OVR_\${_v}_R="\${OVR_\${_v}_R:-\$MAIN_RR}""
-        eval "OVR_\${_v}_G="\${OVR_\${_v}_G:-\$MAIN_GR}""
-        eval "OVR_\${_v}_B="\${OVR_\${_v}_B:-\$MAIN_BR}""
+        eval "OVR_${_v}_R=\${OVR_${_v}_R:-\$MAIN_RR}"
+        eval "OVR_${_v}_G=\${OVR_${_v}_G:-\$MAIN_GR}"
+        eval "OVR_${_v}_B=\${OVR_${_v}_B:-\$MAIN_BR}"
     done
 
     # 4d. Setup output dir
