@@ -221,11 +221,44 @@ case "$COLOR_CHOICE" in
         RR=$(python3 -c "print($R/255)")
         GR=$(python3 -c "print($G/255)")
         BR=$(python3 -c "print($B/255)")
-        # Generate mask tones based on the custom color
-        MASK_A="${CUSTOM_HEX}"; MASK_B="${CUSTOM_HEX}"
-        MASK_L="${CUSTOM_HEX}"; MASK_R="${CUSTOM_HEX}"; MASK_Z="${CUSTOM_HEX}"
-        MASK_S="${CUSTOM_HEX}"; MASK_CU="${CUSTOM_HEX}"; MASK_CR="${CUSTOM_HEX}"
-        MASK_CD="${CUSTOM_HEX}"; MASK_CL="${CUSTOM_HEX}"; MASK_SEN="${CUSTOM_HEX}"
+        # Generate proper mask tones based on the custom color
+        eval "$(python3 << PYEOF
+c = '${CUSTOM_HEX}'
+r, g, b = int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16)
+
+def clamp(val):
+    return max(0, min(255, round(val)))
+
+def h(r, g, b):
+    return f'{clamp(r):02X}{clamp(g):02X}{clamp(b):02X}'
+
+def darken(factor):
+    return h(r * factor, g * factor, b * factor)
+
+def lighten(t):
+    return h(r + (255 - r) * t, g + (255 - g) * t, b + (255 - b) * t)
+
+def desaturate(t):
+    gray = r * 0.299 + g * 0.587 + b * 0.114
+    return h(r + (gray - r) * t, g + (gray - g) * t, b + (gray - b) * t)
+
+masks = {
+    'MASK_A':   darken(0.90),    # Base
+    'MASK_B':   darken(0.60),    # Darker
+    'MASK_L':   lighten(0.65),   # Very light
+    'MASK_R':   lighten(0.35),   # Medium-light
+    'MASK_Z':   lighten(0.20),   # Slightly light
+    'MASK_S':   darken(0.40),    # Very dark
+    'MASK_CU':  darken(0.80),    # Slightly dark
+    'MASK_CR':  lighten(0.50),   # Light
+    'MASK_CD':  darken(0.55),    # Dark
+    'MASK_CL':  darken(0.35),    # Darkest
+    'MASK_SEN': desaturate(0.50), # Grayish
+}
+for k, v in masks.items():
+    print(f'{k}={v}')
+PYEOF
+)"
         COLOR_NAME="Custom-${CUSTOM_HEX}"
         ;;
     *)
