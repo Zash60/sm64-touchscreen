@@ -132,7 +132,7 @@ mkdir -p "$OUTPUT_BASE"
 echo -e "\n${BOLD}AVAILABLE COLORS:${NC}"
 echo -e "  ${RED}1) Red${NC}        ${GREEN}2) Green${NC}      ${BLUE}3) Blue${NC}"
 echo -e "  ${MAGENTA}4) Purple${NC}     ${YELLOW}5) Orange${NC}     ${CYAN}6) Cyan${NC}"
-echo -e "  ${RED}7) Pink${NC}       ${YELLOW}8) Yellow${NC}    ${GREEN}9) Teal${NC}"
+echo -e "  ${MAGENTA}7) Pink${NC}       ${YELLOW}8) Yellow${NC}    ${CYAN}9) Teal${NC}"
 echo -e "  ${BOLD}10) Custom${NC} (enter a hex like #FF6600)"
 echo -ne "\nPick (1-10): "
 read -r COLOR_CHOICE
@@ -280,21 +280,24 @@ s = rr_nice + gr_nice + br_nice
 denom = (0.299*rr_nice + 0.587*gr_nice + 0.114*br_nice) / s if s else 1
 scale = 1.0 / denom if denom else 1.0
 
-def recolor_pixel(r, g, b, a):
-    if a == 0: return (0,0,0,0)
-    n = (0.299*r + 0.587*g + 0.114*b) / 255.0
-    return (
-        min(255, round(n * scale * rr_nice * 255 / s)),
-        min(255, round(n * scale * gr_nice * 255 / s)),
-        min(255, round(n * scale * br_nice * 255 / s)),
-        a,
-    )
-
 def recolor_image(img):
     if img.mode != 'RGBA': img = img.convert('RGBA')
-    px = list(img.getdata())
+    px = img.load()
     out = Image.new('RGBA', img.size)
-    out.putdata([recolor_pixel(r,g,b,a) for (r,g,b,a) in px])
+    opx = out.load()
+    for y in range(img.height):
+        for x in range(img.width):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                opx[x, y] = (0, 0, 0, 0)
+            else:
+                n = (0.299*r + 0.587*g + 0.114*b) / 255.0
+                opx[x, y] = (
+                    min(255, round(n * scale * rr_nice * 255 / s)),
+                    min(255, round(n * scale * gr_nice * 255 / s)),
+                    min(255, round(n * scale * br_nice * 255 / s)),
+                    a,
+                )
     return out
 
 def recolor_mask(img):
