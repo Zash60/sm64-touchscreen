@@ -253,6 +253,12 @@ while true; do
 
         # ─── 4. Color selection (with voltar + per-button customization) ──
         while true; do
+            # Clear per-group overrides from previous iterations
+            AB_A=""; AB_B=""; LRZ_L=""; LRZ_R=""; LRZ_Z=""; S_S=""
+            C_CU=""; C_CR=""; C_CD=""; C_CL=""; SEN_SEN=""
+            AB_RR=""; AB_GR=""; AB_BR=""; LRZ_RR=""; LRZ_GR=""; LRZ_BR=""
+            S_RR=""; S_GR=""; S_BR=""; C_RR=""; C_GR=""; C_BR=""
+            SEN_RR=""; SEN_GR=""; SEN_BR=""
             # 4a. Pick main color
             while true; do
                 echo -e "\n${BOLD}MAIN COLOR:${NC}"
@@ -349,14 +355,19 @@ while true; do
             # Save overrides for the chosen group
             case "$GROUP_CHOICE" in
                 1) AB_A="$MASK_A"; AB_B="$MASK_B"; G_NAME_A="$COLOR_NAME"
+                    AB_RR=$RR; AB_GR=$GR; AB_BR=$BR
                     ok "A/B → ${COLOR_NAME}" ;;
                 2) LRZ_L="$MASK_L"; LRZ_R="$MASK_R"; LRZ_Z="$MASK_Z"; G_NAME_LRZ="$COLOR_NAME"
+                    LRZ_RR=$RR; LRZ_GR=$GR; LRZ_BR=$BR
                     ok "L/R/Z → ${COLOR_NAME}" ;;
                 3) S_S="$MASK_S"; G_NAME_S="$COLOR_NAME"
+                    S_RR=$RR; S_GR=$GR; S_BR=$BR
                     ok "Start → ${COLOR_NAME}" ;;
                 4) C_CU="$MASK_CU"; C_CR="$MASK_CR"; C_CD="$MASK_CD"; C_CL="$MASK_CL"; G_NAME_C="$COLOR_NAME"
+                    C_RR=$RR; C_GR=$GR; C_BR=$BR
                     ok "C buttons → ${COLOR_NAME}" ;;
                 5) SEN_SEN="$MASK_SEN"; G_NAME_SEN="$COLOR_NAME"
+                    SEN_RR=$RR; SEN_GR=$GR; SEN_BR=$BR
                     ok "Sen → ${COLOR_NAME}" ;;
             esac
         done
@@ -370,6 +381,12 @@ while true; do
     MASK_CD="${C_CD:-$MAIN_CD}"; MASK_CL="${C_CL:-$MAIN_CL}"
     MASK_SEN="${SEN_SEN:-$MAIN_SEN}"
     RR=$MAIN_RR; GR=$MAIN_GR; BR=$MAIN_BR; COLOR_NAME="$MAIN_NAME"
+    # Default per-group RGBs to main color (for non-mask image recolor)
+    AB_RR="${AB_RR:-$MAIN_RR}"; AB_GR="${AB_GR:-$MAIN_GR}"; AB_BR="${AB_BR:-$MAIN_BR}"
+    LRZ_RR="${LRZ_RR:-$MAIN_RR}"; LRZ_GR="${LRZ_GR:-$MAIN_GR}"; LRZ_BR="${LRZ_BR:-$MAIN_BR}"
+    S_RR="${S_RR:-$MAIN_RR}"; S_GR="${S_GR:-$MAIN_GR}"; S_BR="${S_BR:-$MAIN_BR}"
+    C_RR="${C_RR:-$MAIN_RR}"; C_GR="${C_GR:-$MAIN_GR}"; C_BR="${C_BR:-$MAIN_BR}"
+    SEN_RR="${SEN_RR:-$MAIN_RR}"; SEN_GR="${SEN_GR:-$MAIN_GR}"; SEN_BR="${SEN_BR:-$MAIN_BR}"
 
     # 4d. Setup output dir
     OUTPUT_DIR="${OUTPUT_BASE}/${SELECTED_SKIN}-${COLOR_NAME}"
@@ -420,12 +437,53 @@ MASK_MAP = {
     (0x88,0x88,0x88): tuple(bytes.fromhex("${MASK_SEN}")),  # Sen
 }
 
-# ─── Recolor function ───────────────────────────────────────────
+# ─── Per-group RGB overrides for non-mask images ──────────────
+AB_RGB = (${AB_RR}, ${AB_GR}, ${AB_BR})
+LRZ_RGB = (${LRZ_RR}, ${LRZ_GR}, ${LRZ_BR})
+S_RGB = (${S_RR}, ${S_GR}, ${S_BR})
+C_RGB = (${C_RR}, ${C_GR}, ${C_BR})
+SEN_RGB = (${SEN_RR}, ${SEN_GR}, ${SEN_BR})
+
+# Filename prefix → group RGB (longer prefixes first for proper matching)
+GROUP_PREFIXES = {
+    'buttonSen': SEN_RGB,
+    'buttonS': S_RGB,
+    'buttonCu': C_RGB,
+    'buttonCr': C_RGB,
+    'buttonCd': C_RGB,
+    'buttonCl': C_RGB,
+    'buttonA': AB_RGB,
+    'buttonB': AB_RGB,
+    'buttonL': LRZ_RGB,
+    'buttonR': LRZ_RGB,
+    'buttonZ': LRZ_RGB,
+    'groupAB': AB_RGB,
+    'groupC': C_RGB,
+    'analog': SEN_RGB,
+}
+GROUP_KEYS = sorted(GROUP_PREFIXES.keys(), key=len, reverse=True)
+
+def get_group_rgb(fname):
+    for prefix in GROUP_KEYS:
+        if fname.startswith(prefix):
+            return GROUP_PREFIXES[prefix]
+    return None
+
+# ─── Recolor functions ────────────────────────────────────────
 s = rr_nice + gr_nice + br_nice
 denom = (0.299*rr_nice + 0.587*gr_nice + 0.114*br_nice) / s if s else 1
 scale = 1.0 / denom if denom else 1.0
 
-def recolor_image(img):
+def recolor_image(img, rgb=None):
+    if rgb:
+        local_rr, local_gr, local_br = rgb
+        local_s = local_rr + local_gr + local_br
+        local_denom = (0.299*local_rr + 0.587*local_gr + 0.114*local_br) / local_s if local_s else 1
+        local_scale = 1.0 / local_denom if local_denom else 1.0
+    else:
+        local_rr, local_gr, local_br = rr_nice, gr_nice, br_nice
+        local_s, local_scale = s, scale
+
     if img.mode != 'RGBA': img = img.convert('RGBA')
     px = img.load()
     out = Image.new('RGBA', img.size)
@@ -438,9 +496,9 @@ def recolor_image(img):
             else:
                 n = (0.299*r + 0.587*g + 0.114*b) / 255.0
                 opx[x, y] = (
-                    min(255, round(n * scale * rr_nice * 255 / s)),
-                    min(255, round(n * scale * gr_nice * 255 / s)),
-                    min(255, round(n * scale * br_nice * 255 / s)),
+                    min(255, round(n * local_scale * local_rr * 255 / local_s)),
+                    min(255, round(n * local_scale * local_gr * 255 / local_s)),
+                    min(255, round(n * local_scale * local_br * 255 / local_s)),
                     a,
                 )
     return out
@@ -476,7 +534,7 @@ for fname in files:
         if is_mask:
             img = recolor_mask(img)
         else:
-            img = recolor_image(img)
+            img = recolor_image(img, get_group_rgb(fname))
         img.save(dst, format='PNG')
         count += 1
         sys.stdout.write(f'\r  Processed: {count}')
