@@ -122,6 +122,11 @@ ok "Base skin: $SELECTED_SKIN"
 
 # ─── Output to Downloads ─────────────────────────────────────────
 if command -v termux-setup-storage &>/dev/null; then
+    # Ensure storage symlinks exist
+    if [ ! -d "${HOME}/storage/downloads" ]; then
+        echo -e "  ${YELLOW}→ Running termux-setup-storage...${NC}"
+        termux-setup-storage
+    fi
     OUTPUT_BASE="${HOME}/storage/downloads/skins"
 else
     OUTPUT_BASE="${SCRIPT_DIR}"
