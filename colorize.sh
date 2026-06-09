@@ -201,67 +201,71 @@ else
 fi
 
 # ─── 3. Pick base skin (with voltar) ─────────────────────────────────
+SKIN_PICKED=false
 while true; do
-    echo -e "\n${BOLD}AVAILABLE SKINS:${NC}"
-    SKIN_NAMES=()
-    i=1
-    for d in "${SKIN_DIR}"/*/; do
-        name=$(basename "$d")
-        if [ -f "$d/skin.ini" ]; then
-            display=$(grep "^name=" "$d/skin.ini" 2>/dev/null | cut -d= -f2)
-            [ -z "$display" ] && display="$name"
-            echo -e "  ${i}) ${display}"
-            SKIN_NAMES+=("$name")
-            i=$((i+1))
+    if ! $SKIN_PICKED; then
+        echo -e "\n${BOLD}AVAILABLE SKINS:${NC}"
+        SKIN_NAMES=()
+        i=1
+        for d in "${SKIN_DIR}"/*/; do
+            name=$(basename "$d")
+            if [ -f "$d/skin.ini" ]; then
+                display=$(grep "^name=" "$d/skin.ini" 2>/dev/null | cut -d= -f2)
+                [ -z "$display" ] && display="$name"
+                echo -e "  ${i}) ${display}"
+                SKIN_NAMES+=("$name")
+                i=$((i+1))
+            fi
+        done
+        echo -e "  ${BOLD}0) Exit${NC}"
+        echo -ne "\nPick skin (0-$((i-1))): "
+        read -r SKIN_CHOICE
+
+        case "$SKIN_CHOICE" in
+            0) exit 0 ;;
+            *)
+                if [ -z "${SKIN_NAMES[$((SKIN_CHOICE-1))]}" ]; then
+                    err "Invalid choice"; continue
+                fi
+                SELECTED_SKIN="${SKIN_NAMES[$((SKIN_CHOICE-1))]}"
+                BASE_SKIN="${SKIN_DIR}/${SELECTED_SKIN}"
+                if [ ! -f "$BASE_SKIN/skin.ini" ]; then
+                    err "skin.ini not found in $BASE_SKIN"; continue
+                fi
+                SKIN_PICKED=true
+                ok "Base skin: $SELECTED_SKIN"
+                ;;
+        esac
+    fi  # ! SKIN_PICKED
+
+    if $SKIN_PICKED; then
+        # ─── Output to Downloads ─────────────────────────────────────
+        if command -v termux-setup-storage &>/dev/null; then
+            if [ ! -d "${HOME}/storage/downloads" ]; then
+                echo -e "  ${YELLOW}→ Running termux-setup-storage...${NC}"
+                termux-setup-storage
+            fi
+            OUTPUT_BASE="${HOME}/storage/downloads/skins"
+        else
+            OUTPUT_BASE="${SCRIPT_DIR}"
         fi
-    done
-    echo -e "  ${BOLD}0) Exit${NC}"
-    echo -ne "\nPick skin (0-$((i-1))): "
-    read -r SKIN_CHOICE
+        mkdir -p "$OUTPUT_BASE"
 
-    case "$SKIN_CHOICE" in
-        0) exit 0 ;;
-        *)
-            if [ -z "${SKIN_NAMES[$((SKIN_CHOICE-1))]}" ]; then
-                err "Invalid choice"; continue
-            fi
-            SELECTED_SKIN="${SKIN_NAMES[$((SKIN_CHOICE-1))]}"
-            BASE_SKIN="${SKIN_DIR}/${SELECTED_SKIN}"
-            if [ ! -f "$BASE_SKIN/skin.ini" ]; then
-                err "skin.ini not found in $BASE_SKIN"; continue
-            fi
-            ok "Base skin: $SELECTED_SKIN"
-            break
-            ;;
-    esac
+        # ─── 4. Color selection (with voltar + per-button customization) ──
+        while true; do
+            # 4a. Pick main color
+            while true; do
+                echo -e "\n${BOLD}MAIN COLOR:${NC}"
+                echo -e "  ${RED}1) Red${NC}        ${GREEN}2) Green${NC}      ${BLUE}3) Blue${NC}"
+                echo -e "  ${MAGENTA}4) Purple${NC}     ${YELLOW}5) Orange${NC}     ${CYAN}6) Cyan${NC}"
+                echo -e "  ${MAGENTA}7) Pink${NC}       ${YELLOW}8) Yellow${NC}    ${CYAN}9) Teal${NC}"
+                echo -e "  ${BOLD}10) Custom${NC} (enter a hex like #FF6600)"
+                echo -e "  ${BOLD}0) Back (change skin)${NC}"
+                echo -ne "\nPick (0-10): "
+                read -r COLOR_CHOICE
 
-# ─── Output to Downloads ─────────────────────────────────────────
-if command -v termux-setup-storage &>/dev/null; then
-    if [ ! -d "${HOME}/storage/downloads" ]; then
-        echo -e "  ${YELLOW}→ Running termux-setup-storage...${NC}"
-        termux-setup-storage
-    fi
-    OUTPUT_BASE="${HOME}/storage/downloads/skins"
-else
-    OUTPUT_BASE="${SCRIPT_DIR}"
-fi
-mkdir -p "$OUTPUT_BASE"
-
-# ─── 4. Color selection (with voltar + per-button customization) ──
-while true; do
-    # 4a. Pick main color
-    while true; do
-        echo -e "\n${BOLD}MAIN COLOR:${NC}"
-        echo -e "  ${RED}1) Red${NC}        ${GREEN}2) Green${NC}      ${BLUE}3) Blue${NC}"
-        echo -e "  ${MAGENTA}4) Purple${NC}     ${YELLOW}5) Orange${NC}     ${CYAN}6) Cyan${NC}"
-        echo -e "  ${MAGENTA}7) Pink${NC}       ${YELLOW}8) Yellow${NC}    ${CYAN}9) Teal${NC}"
-        echo -e "  ${BOLD}10) Custom${NC} (enter a hex like #FF6600)"
-        echo -e "  ${BOLD}0) Back (change skin)${NC}"
-        echo -ne "\nPick (0-10): "
-        read -r COLOR_CHOICE
-
-        case "$COLOR_CHOICE" in
-            0) continue 3 ;;  # back to skin picker
+                case "$COLOR_CHOICE" in
+                    0) SKIN_PICKED=false; continue 3 ;;  # back to skin
             [1-9]) load_color "$COLOR_CHOICE"; break ;;
             10)
                 echo -ne "\nEnter HEX color (e.g. #FF6600): "
@@ -474,7 +478,8 @@ PYEOF
     esac
 
 done  # color loop
-break  # exit skin loop (we only reach here via break 2 from preview)
+break  # exit skin loop (unreachable — while true above never exits naturally)
+    fi
 done  # skin loop
 
 # ─── 5. Process images with Python ─────────────────────────────────
