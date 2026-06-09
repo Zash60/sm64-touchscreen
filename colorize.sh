@@ -385,8 +385,12 @@ while true; do
     mkdir -p "$OUTPUT_DIR"
 
     # 4e. Preview — generate 1 representative image
-    PREVIEW_FILE="$(cd "$BASE_SKIN" && ls -S *.png 2>/dev/null | tail -1)"
-    if [ -n "$PREVIEW_FILE" ]; then
+    # Use groupAB.png (A/B buttons) — exists in all skins, medium-sized, shows masks
+    PREVIEW_FILE="groupAB.png"
+    if [ ! -f "${BASE_SKIN}/${PREVIEW_FILE}" ]; then
+        PREVIEW_FILE="$(cd "$BASE_SKIN" && ls *.png 2>/dev/null | grep -v '\-mask\.' | head -1)"
+    fi
+    if [ -n "$PREVIEW_FILE" ] && [ -f "${BASE_SKIN}/${PREVIEW_FILE}" ]; then
         python3 << PYEOF
 import os, sys
 from PIL import Image
