@@ -285,8 +285,8 @@ while true; do
 
     # Save main color masks as defaults
     MAIN_RR=$RR; MAIN_GR=$GR; MAIN_BR=$BR; MAIN_NAME="$COLOR_NAME"
-    for _v in MASK_A MASK_B MASK_L MASK_R MASK_Z MASK_S MASK_CU MASK_CR MASK_CD MASK_CL MASK_SEN; do
-        eval "MAIN_${_v}=\${_v}"
+    for _v in A B L R Z S CU CR CD CL SEN; do
+        eval "MAIN_${_v}=\$MASK_${_v}"
     done
     # Track per-group override names for display
     G_NAME_A="${COLOR_NAME}"; G_NAME_B="${COLOR_NAME}"; G_NAME_LRZ="${COLOR_NAME}"
@@ -384,102 +384,7 @@ while true; do
     fi
     mkdir -p "$OUTPUT_DIR"
 
-    # 4e. Preview — generate 1 representative image
-    # Use groupAB.png (A/B buttons) — exists in all skins, medium-sized, shows masks
-    PREVIEW_FILE="groupAB.png"
-    if [ ! -f "${BASE_SKIN}/${PREVIEW_FILE}" ]; then
-        PREVIEW_FILE="$(cd "$BASE_SKIN" && ls *.png 2>/dev/null | grep -v '\-mask\.' | head -1)"
-    fi
-    if [ -n "$PREVIEW_FILE" ] && [ -f "${BASE_SKIN}/${PREVIEW_FILE}" ]; then
-        python3 << PYEOF
-import os, sys
-from PIL import Image
-
-base_skin = "${BASE_SKIN}"
-out_dir = "${OUTPUT_DIR}"
-rr, gr, br = ${RR}, ${GR}, ${BR}
-color_name = "${COLOR_NAME}"
-rr_nice = ${RR}; gr_nice = ${GR}; br_nice = ${BR}
-
-MASK_MAP = {
-    (0x00,0xE0,0xCA): tuple(bytes.fromhex("${MASK_CU}")),
-    (0xFF,0x63,0x5C): tuple(bytes.fromhex("${MASK_CR}")),
-    (0x84,0xA1,0xD5): tuple(bytes.fromhex("${MASK_CD}")),
-    (0x5A,0x6B,0x1F): tuple(bytes.fromhex("${MASK_CL}")),
-    (0x00,0x7F,0x46): tuple(bytes.fromhex("${MASK_A}")),
-    (0x4B,0x4B,0x4B): tuple(bytes.fromhex("${MASK_B}")),
-    (0xFF,0xB4,0x00): tuple(bytes.fromhex("${MASK_L}")),
-    (0x6B,0x1F,0x49): tuple(bytes.fromhex("${MASK_R}")),
-    (0x42,0xA6,0xEC): tuple(bytes.fromhex("${MASK_Z}")),
-    (0xB4,0x5D,0x5D): tuple(bytes.fromhex("${MASK_S}")),
-    (0x88,0x88,0x88): tuple(bytes.fromhex("${MASK_SEN}")),
-}
-
-s = rr_nice + gr_nice + br_nice
-denom = (0.299*rr_nice + 0.587*gr_nice + 0.114*br_nice) / s if s else 1
-scale = 1.0 / denom if denom else 1.0
-
-def recolor_image(img):
-    if img.mode != 'RGBA': img = img.convert('RGBA')
-    px = img.load()
-    out = Image.new('RGBA', img.size)
-    opx = out.load()
-    for y in range(img.height):
-        for x in range(img.width):
-            r, g, b, a = px[x, y]
-            if a == 0:
-                opx[x, y] = (0, 0, 0, 0)
-            else:
-                n = (0.299*r + 0.587*g + 0.114*b) / 255.0
-                opx[x, y] = (
-                    min(255, round(n * scale * rr_nice * 255 / s)),
-                    min(255, round(n * scale * gr_nice * 255 / s)),
-                    min(255, round(n * scale * br_nice * 255 / s)),
-                    a,
-                )
-    return out
-
-def recolor_mask(img):
-    if img.mode != 'RGBA': img = img.convert('RGBA')
-    px = img.load()
-    for y in range(img.height):
-        for x in range(img.width):
-            r, g, b, a = px[x, y]
-            if a == 0: continue
-            key = (r, g, b)
-            if key in MASK_MAP:
-                nr, ng, nb = MASK_MAP[key]
-                px[x, y] = (nr, ng, nb, a)
-    return img
-
-fname = "${PREVIEW_FILE}"
-src = os.path.join(base_skin, fname)
-img = Image.open(src)
-is_mask = '-mask.' in fname
-if is_mask:
-    img = recolor_mask(img)
-else:
-    img = recolor_image(img)
-preview_path = os.path.join(out_dir, 'preview.png')
-img.save(preview_path)
-print(f'  Preview: {preview_path}')
-PYEOF
-    fi
-
-    echo -e "\n📸 ${BOLD}Preview${NC} saved to ${OUTPUT_DIR}/preview.png"
-    echo -ne "${BOLD}Continue with full generation?${NC} [Y/n]: "
-    read -r CONFIRM
-    case "$CONFIRM" in
-        [Nn])
-            info "Going back to color selection..."
-            rm -rf "$OUTPUT_DIR"
-            # Clear per-group overrides so user starts fresh
-            AB_A=""; AB_B=""; LRZ_L=""; LRZ_R=""; LRZ_Z=""
-            S_S=""; C_CU=""; C_CR=""; C_CD=""; C_CL=""; SEN_SEN=""
-            continue  ;;  # restart color selection
-        *)
-            break 2 ;;  # exit to generation
-    esac
+    break 2  # exit to generation
 
 done  # color loop
 break  # exit skin loop (unreachable — while true above never exits naturally)
@@ -576,7 +481,7 @@ for fname in files:
         count += 1
         sys.stdout.write(f'\r  Processed: {count}')
         sys.stdout.flush()
-    except Exception as e:
+    except Exception:
         errors += 1
 
 # ─── Copy and update skin.ini ──────────────────────────────────
